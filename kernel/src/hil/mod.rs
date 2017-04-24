@@ -12,6 +12,7 @@ pub mod radio;
 pub mod temperature;
 pub mod crc;
 pub mod symmetric_encryption;
+pub mod gpio_async;
 
 pub trait Controller {
     type Config;
