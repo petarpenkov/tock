@@ -30,6 +30,13 @@ int adc_read_single_sample(uint8_t channel);
 int adc_read_cont_sample(uint8_t channel, uint32_t frequency, void (*cb)(int));
 int adc_cancel_sampling(void);
 
+// Returns the continuous sampling frequency nearest
+// to FREQUENCY that the ADC can actually achieve.
+// This calculation is done internally by ADC
+// continuous read function, but is offered here as
+// a convenience to the user.
+uint32_t adc_nearest_sampling_freq(uint32_t frequency);
+
 #ifdef __cplusplus
 }
 #endif

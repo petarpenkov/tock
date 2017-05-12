@@ -205,23 +205,23 @@ impl adc::AdcContinuous for Adc {
     // do we allow runtime change?
     type Frequency = adc::Freq1KHz;
 
-    fn compute_interval(&self, interval: u32) -> u32 {
+    fn compute_frequency(&self, frequency: u32) -> u32 {
         // Internal Timer Trigger Period= (ITMC+1)*T(CLK_ADC)
         // f(itimer_timeout) = f(GCLK) / (ITMC + 1)
         // ITMC = (f(GCLK)/F(itimer_timeout) - 1)
-        if interval == 0 {
+        if frequency == 0 {
             return 1; // Minimum possible frequency
         }
 
-        if interval > Self::Frequency::frequency() { // Maximum possible frequency
+        if frequency > Self::Frequency::frequency() { // Maximum possible frequency
             return Self::Frequency::frequency();
         }
 
-        let itmc: u32 = (self.max_frequency.get() / interval ) - 1;
+        let itmc: u32 = (self.max_frequency.get() / frequency ) - 1;
         return self.max_frequency.get() / (itmc + 1);
     }
 
-    fn sample_continuous(&self, _channel: u8, _interval: u32) -> ReturnCode {
+    fn sample_continuous(&self, _channel: u8, _frequency: u32) -> ReturnCode {
         let regs: &mut AdcRegisters = unsafe { mem::transmute(self.registers) };
         if !self.enabled.get() {
             self.enabled.set(true);
@@ -292,8 +292,8 @@ impl adc::AdcContinuous for Adc {
             regs.cr.set(2); // stop timer before setting it up
 
             // Set interrupt timeout
-            let actual_interval = self.compute_interval(_interval);
-            let itmc = (self.max_frequency.get() / actual_interval ) - 1;
+            let actual_freq = self.compute_frequency(_frequency);
+            let itmc = (self.max_frequency.get() / actual_freq ) - 1;
             regs.itimer.set(cmp::max(cmp::min(itmc, 0x0000FFFF), 0));
             // Enable end of conversion interrupt
             regs.ier.set(1);

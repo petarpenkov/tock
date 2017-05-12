@@ -17,7 +17,7 @@ pub struct ADC<'a, A: AdcSingle + AdcContinuous + 'a> {
     adc: &'a A,
     channel: Cell<Option<u8>>,
     app: Container<AppData>,
-    mode: Cell<bool>,
+    cont_mode: Cell<bool>,
 }
 
 impl<'a, A: AdcSingle + AdcContinuous + 'a> ADC<'a, A> {
@@ -26,7 +26,7 @@ impl<'a, A: AdcSingle + AdcContinuous + 'a> ADC<'a, A> {
             adc: adc,
             channel: Cell::new(None),
             app: container,
-            mode: Cell::new(false),
+            cont_mode: Cell::new(false),
         }
     }
 
@@ -35,7 +35,7 @@ impl<'a, A: AdcSingle + AdcContinuous + 'a> ADC<'a, A> {
     }
 
     fn sample(&self, channel: u8, appid: AppId) -> ReturnCode {
-        self.mode.set(false);
+        self.cont_mode.set(false);
         self.app
             .enter(appid, |app, _| {
                 app.channel = Some(channel);
@@ -51,7 +51,7 @@ impl<'a, A: AdcSingle + AdcContinuous + 'a> ADC<'a, A> {
     }
 
     fn sample_continuous (&self, channel: u8, frequency: u32, appid: AppId) -> ReturnCode {
-        self.mode.set(true);
+        self.cont_mode.set(true);
         self.app
             .enter(appid, |app, _| {
                 app.channel = Some(channel);
@@ -75,11 +75,11 @@ impl<'a, A: AdcSingle + AdcContinuous + 'a> ADC<'a, A> {
 impl<'a, A: AdcSingle + AdcContinuous + 'a> Client for ADC<'a, A> {
     fn sample_done(&self, sample: u16) {
         self.channel.get().map(|cur_channel| {
-            if !self.mode.get() {
+            if !self.cont_mode.get() {
                 self.channel.set(None);
             }
             self.app.each(|app| if app.channel == Some(cur_channel) {
-                if !self.mode.get() {
+                if !self.cont_mode.get() {
                     app.channel = None;
                 }
                 app.callback.map(|mut cb| cb.schedule(0, cur_channel as usize, sample as usize));
@@ -87,7 +87,7 @@ impl<'a, A: AdcSingle + AdcContinuous + 'a> Client for ADC<'a, A> {
                 self.channel.set(app.channel);
             });
         });
-        if !self.mode.get() {
+        if !self.cont_mode.get() {
             self.channel.get().map(|next_channel| { self.adc.sample(next_channel); });
         }
     }
@@ -98,6 +98,14 @@ impl<'a, A: AdcSingle + AdcContinuous + 'a> Driver for ADC<'a, A> {
         match subscribe_num {
             // subscribe to ADC sample done
             0 => {
+                self.app
+                    .enter(callback.app_id(),
+                           |app, _| { app.callback = Some(callback); })
+                    .unwrap_or(());
+                ReturnCode::SUCCESS
+            },
+            // compute ADC sampling frequency done
+            1 => {
                 self.app
                     .enter(callback.app_id(),
                            |app, _| { app.callback = Some(callback); })
