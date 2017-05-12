@@ -308,6 +308,14 @@ impl adc::AdcContinuous for Adc {
         // TODO should disable clocks
         ReturnCode::SUCCESS
     }
+
+    fn nearest_sampling_freq(&self, frequency: u32) -> ReturnCode {
+        let freq = self.compute_frequency();
+
+        // TODO: Unsure how to call nearest_sampling_freq callback.
+
+        ReturnCode::FAIL
+    }
 }
 
 interrupt_handler!(adcife_handler, ADCIFE);

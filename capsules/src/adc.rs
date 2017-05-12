@@ -11,6 +11,7 @@ use kernel::hil::adc::{Client, AdcSingle, AdcContinuous};
 pub struct AppData {
     channel: Option<u8>,
     callback: Option<Callback>,
+    freq_callback: Option<Callback>,
 }
 
 pub struct ADC<'a, A: AdcSingle + AdcContinuous + 'a> {
@@ -69,6 +70,14 @@ impl<'a, A: AdcSingle + AdcContinuous + 'a> ADC<'a, A> {
     fn cancel_sampling (&self) -> ReturnCode {
         self.adc.cancel_sampling()
     }
+
+    fn nearest_sampling_freq (&self, frequency: u32, appid: AppId) -> ReturnCode {
+
+        // TODO: Unsure if this is the correct way to call sample_frequency
+        //       (unsure how callback for return value gets called).
+
+        self.adc.nearest_sampling_freq(frequency)
+    }
 }
 
 // The if statements are a hacky way to discriminate. Figure out a better way.
@@ -104,11 +113,11 @@ impl<'a, A: AdcSingle + AdcContinuous + 'a> Driver for ADC<'a, A> {
                     .unwrap_or(());
                 ReturnCode::SUCCESS
             },
-            // compute ADC sampling frequency done
+            // subscribe to ADC compute nearest achievable sampling frequency done
             1 => {
                 self.app
                     .enter(callback.app_id(),
-                           |app, _| { app.callback = Some(callback); })
+                           |app, _| { app.freq_callback = Some(callback); })
                     .unwrap_or(());
                 ReturnCode::SUCCESS
             }
@@ -138,6 +147,9 @@ impl<'a, A: AdcSingle + AdcContinuous + 'a> Driver for ADC<'a, A> {
             },
             4 => {
                 self.cancel_sampling()
+            },
+            5 => {
+                self.nearest_sampling_freq()
             },
 
             // default

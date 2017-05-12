@@ -45,6 +45,10 @@ int adc_set_callback(subscribe_cb callback, void* callback_args) {
   return subscribe(DRIVER_NUM_ADC, 0, callback, callback_args);
 }
 
+int adc_set_freq_callback(subscribe_cb callback, void* callback_args) {
+  return subscribe(DRIVER_NUM_ADC, 1, callback, callback_args);
+}
+
 int adc_initialize(void) {
   return command(DRIVER_NUM_ADC, 1, 0);
 }
@@ -101,7 +105,7 @@ uint32_t adc_nearest_sampling_freq(uint32_t frequency) {
   frequency.computed = false;
   // Callback used as a mechanism for retrieving the value
   // of the nearest achievable frequency.
-  err = adc_set_callback(adc_freq_cb, (void*) &frequency);
+  err = adc_set_freq_callback(adc_freq_cb, (void*) &frequency);
   if (err < 0) return err;
 
   err = adc_compute_frequency(frequency);
