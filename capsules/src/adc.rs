@@ -11,7 +11,7 @@ use kernel::hil::adc::{Client, AdcSingle, AdcContinuous};
 pub struct AppData {
     channel: Option<u8>,
     callback: Option<Callback>,
-    freq_callback: Option<Callback>,
+    interval_callback: Option<Callback>,
 }
 
 pub struct ADC<'a, A: AdcSingle + AdcContinuous + 'a> {
@@ -71,12 +71,12 @@ impl<'a, A: AdcSingle + AdcContinuous + 'a> ADC<'a, A> {
         self.adc.cancel_sampling()
     }
 
-    fn nearest_sampling_freq (&self, frequency: u32, appid: AppId) -> ReturnCode {
+    fn nearest_interval (&self, interval: u32) -> ReturnCode {
 
         // TODO: Unsure if this is the correct way to call sample_frequency
         //       (unsure how callback for return value gets called).
 
-        self.adc.nearest_sampling_freq(frequency)
+        self.adc.nearest_interval(interval)
     }
 }
 
@@ -92,6 +92,25 @@ impl<'a, A: AdcSingle + AdcContinuous + 'a> Client for ADC<'a, A> {
                     app.channel = None;
                 }
                 app.callback.map(|mut cb| cb.schedule(0, cur_channel as usize, sample as usize));
+            } else if app.channel.is_some() {
+                self.channel.set(app.channel);
+            });
+        });
+        if !self.cont_mode.get() {
+            self.channel.get().map(|next_channel| { self.adc.sample(next_channel); });
+        }
+    }
+
+    fn interval_computed(&self, interval: u32) {
+        self.channel.get().map(|cur_channel| {
+            if !self.cont_mode.get() {
+                self.channel.set(None);
+            }
+            self.app.each(|app| if app.channel == Some(cur_channel) {
+                if !self.cont_mode.get() {
+                    app.channel = None;
+                }
+                app.interval_callback.map(|mut cb| cb.schedule(0, cur_channel as usize, interval as usize));
             } else if app.channel.is_some() {
                 self.channel.set(app.channel);
             });
@@ -117,7 +136,7 @@ impl<'a, A: AdcSingle + AdcContinuous + 'a> Driver for ADC<'a, A> {
             1 => {
                 self.app
                     .enter(callback.app_id(),
-                           |app, _| { app.freq_callback = Some(callback); })
+                           |app, _| { app.interval_callback = Some(callback); })
                     .unwrap_or(());
                 ReturnCode::SUCCESS
             }
@@ -149,7 +168,7 @@ impl<'a, A: AdcSingle + AdcContinuous + 'a> Driver for ADC<'a, A> {
                 self.cancel_sampling()
             },
             5 => {
-                self.nearest_sampling_freq()
+                self.nearest_interval(data as u32)
             },
 
             // default

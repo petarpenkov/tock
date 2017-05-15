@@ -35,7 +35,7 @@ int adc_cancel_sampling(void);
 // This calculation is done internally by ADC
 // continuous read function, but is offered here as
 // a convenience to the user.
-uint32_t adc_nearest_sampling_freq(uint32_t frequency);
+uint32_t adc_nearest_interval(uint32_t frequency);
 
 #ifdef __cplusplus
 }

@@ -9,7 +9,7 @@ struct adc_data {
   bool fired;
 };
 
-struct adc_freq {
+struct adc_interval {
   int value;
   bool computed;
 };
@@ -29,16 +29,16 @@ static void adc_cb(__attribute__ ((unused)) int callback_type,
   if (cont_cb)
       cont_cb(reading);
 }
-static struct adc_freq frequency = { .computed = false };
+static struct adc_interval interval_result = { .computed = false };
 // Internal callback for determining closest sampling frequency
 // to that requested by user.
 static void adc_freq_cb(__attribute__ ((unused)) int callback_type,
-                   __attribute__ ((unused)) int channel,
-                   int value,
-                   void* ud) {
-  struct adc_freq* frequency = (struct adc_data*) ud;
-  frequency->value = value;
-  frequency->computed = true;
+                        __attribute__ ((unused)) int channel,
+                        int value,
+                        void* ud) {
+  struct adc_interval *interval = (struct adc_data*) ud;
+  interval->value = value;
+  interval->computed = true;
 }
 
 int adc_set_callback(subscribe_cb callback, void* callback_args) {
@@ -66,8 +66,8 @@ int adc_cancel_sampling(void) {
   return command(DRIVER_NUM_ADC, 4, 0);
 }
 
-int adc_compute_frequency(uint32_t frequency) {
-  return command(DRIVER_NUM_ADC, 5, frequency);
+int adc_compute_interval(uint32_t interval) {
+  return command(DRIVER_NUM_ADC, 5, interval);
 }
 
 int adc_read_single_sample(uint8_t channel) {
@@ -99,20 +99,20 @@ int adc_read_cont_sample(uint8_t channel, uint32_t frequency, void (*cb)(int)) {
   return err;
 }
 
-uint32_t adc_nearest_sampling_freq(uint32_t frequency) {
+uint32_t adc_nearest_interval(uint32_t interval) {
   int err;
 
-  frequency.computed = false;
+  interval_result.computed = false;
   // Callback used as a mechanism for retrieving the value
   // of the nearest achievable frequency.
-  err = adc_set_freq_callback(adc_freq_cb, (void*) &frequency);
+  err = adc_set_freq_callback(adc_freq_cb, (void*) &interval_result);
   if (err < 0) return err;
 
-  err = adc_compute_frequency(frequency);
+  err = adc_compute_interval(interval);
   if (err < 0) return err;
 
   // Wait for callback.
-  yield_for(&frequency.computed);
+  yield_for(&interval_result.computed);
 
-  return frequency.value;
+  return interval_result.value;
 }

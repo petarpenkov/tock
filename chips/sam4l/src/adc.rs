@@ -205,7 +205,7 @@ impl adc::AdcContinuous for Adc {
     // do we allow runtime change?
     type Frequency = adc::Freq1KHz;
 
-    fn compute_frequency(&self, frequency: u32) -> u32 {
+    fn compute_interval(&self, frequency: u32) -> u32 {
         // Internal Timer Trigger Period= (ITMC+1)*T(CLK_ADC)
         // f(itimer_timeout) = f(GCLK) / (ITMC + 1)
         // ITMC = (f(GCLK)/F(itimer_timeout) - 1)
@@ -292,7 +292,7 @@ impl adc::AdcContinuous for Adc {
             regs.cr.set(2); // stop timer before setting it up
 
             // Set interrupt timeout
-            let actual_freq = self.compute_frequency(_frequency);
+            let actual_freq = self.compute_interval(_frequency);
             let itmc = (self.max_frequency.get() / actual_freq ) - 1;
             regs.itimer.set(cmp::max(cmp::min(itmc, 0x0000FFFF), 0));
             // Enable end of conversion interrupt
@@ -309,12 +309,10 @@ impl adc::AdcContinuous for Adc {
         ReturnCode::SUCCESS
     }
 
-    fn nearest_sampling_freq(&self, frequency: u32) -> ReturnCode {
-        let freq = self.compute_frequency();
-
-        // TODO: Unsure how to call nearest_sampling_freq callback.
-
-        ReturnCode::FAIL
+    fn nearest_interval(&self, interval: u32) -> ReturnCode {
+        let interval = self.compute_interval(interval);
+        self.client.get().map(|client| { client.interval_computed(interval); });
+        ReturnCode::SUCCESS
     }
 }
 
